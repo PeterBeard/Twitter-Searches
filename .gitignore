@@ -1,2 +1,4 @@
 # ignore config file
 config.ini
+*.csv
+*.swp
