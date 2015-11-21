@@ -1,0 +1,2 @@
+tweepy>=3.4.0
+openpyxl>=2.3.1
