@@ -8,6 +8,7 @@ import csv, openpyxl
 import configparser
 import argparse
 import re
+import sys
 from io import StringIO
 from datetime import date, timedelta
 
@@ -108,22 +109,33 @@ endUntil = today + timedelta(days=1)
 auth = tweepy.OAuthHandler(consumer_token, consumer_secret)
 auth.set_access_token(access_token, access_secret)
 api = tweepy.API(auth)
-mysearch = tweepy.Cursor(api.search,q=search_term, since=startSince, until=endUntil, lang=lang).items()
+results = tweepy.Cursor(api.search,q=search_term, since=startSince, until=endUntil, lang=lang).items()
 
 count = 0
 while count < n_tweets or n_tweets <= 0:
     try:
-        tweet = mysearch.next()
+        tweet = results.next()
         if output_format == 'csv':
             csvWriter.writerow([tweet.created_at, tweet.text.encode('utf-8')])
         elif output_format == 'xls' or output_format == 'xlsx':
             ws.append([tweet.created_at, tweet.text.encode('utf-8')])
         count += 1
-    except tweepy.TweepError:
-        time.sleep(60 * 15)
-        continue
-    except:
+    except StopIteration:
         break
+    except tweepy.TweepError as e:
+        # Wait if we're being rate-limited
+        limits = api.rate_limit_status()
+        if limits['resources']['search']['/search/tweets']['remaining'] == 0:
+            # Print a message to STDERR and wait until the API reset time (max 15 minutes)
+            reset_time = limits['resources']['search']['/search/tweets']['reset']
+            wait_time = int(reset_time - time.time()) + 1
+            print('Rate-limiting detected; waiting {0} seconds.'.format(wait_time), file=sys.stderr)
+            time.sleep(wait_time)
+        # Something has gone wrong; clean up and re-raise the exception
+        else:
+            if outfile:
+                output_handle.close()
+            raise e
 
 # Save the XLS file
 if output_format == 'xls' or output_format == 'xlsx':
