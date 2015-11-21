@@ -102,7 +102,8 @@ else:
 #search parameters
 today = date.today()
 startSince = today - timedelta(seconds=time_window)
-endUntil = today
+# If the limit isn't in the future then Twitter won't show things from today
+endUntil = today + timedelta(days=1)
 
 auth = tweepy.OAuthHandler(consumer_token, consumer_secret)
 auth.set_access_token(access_token, access_secret)
@@ -118,7 +119,7 @@ while count < n_tweets or n_tweets <= 0:
         elif output_format == 'xls' or output_format == 'xlsx':
             ws.append([tweet.created_at, tweet.text.encode('utf-8')])
         count += 1
-    except Tweepy.TweepError:
+    except tweepy.TweepError:
         time.sleep(60 * 15)
         continue
     except:
